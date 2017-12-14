@@ -42,7 +42,7 @@ If an action still failed, it will mark the file as deffective and continue.
 
 If the is restarted after it shuts down by itself, it will skip the successful files and retry the failed files.
 
-# TODO
+## TODO
  - Replace Java's standard synchronous copying method with an asynchronous one.
  - Implement pausing
  - Implement partial copying 
