@@ -13,9 +13,27 @@ object RecoveryHelper {
             "or" +
             "USAGE: $className <CONFIG_FILE>"
     private var srcPrefixLength = 0
-    private var dstPrefixLength = 0
     var data: Config = Config()
     private var running = true
+    private var mainThread = Thread.currentThread()!!
+    private var shutdownHook = object : Thread("shutdown hook") {
+        override fun run() {
+            if (data.progress == Enums.Progress.DONE)
+                return
+            running = false
+            var i = 0
+            while (mainThread.isAlive) {
+                Thread.sleep(10)
+                if (i++ % 2_000 == 0) {
+                    println("Please wait while shutting down! Do not unplug your device, yet!")
+                }
+            }
+            println("Saving progress...")
+            data.save()
+            println("Saved!")
+            println("You can now unplug your device.")
+        }
+    }
 
     @JvmStatic
     fun main(args: Array<String>) {
@@ -26,23 +44,8 @@ object RecoveryHelper {
                 throw e
             return
         }
-        val mainThread = Thread.currentThread()
-        Runtime.getRuntime().addShutdownHook(object : Thread("shutdown hook") {
-            override fun run() {
-                running = false
-                var i = 0
-                while (mainThread.isAlive) {
-                    Thread.sleep(10)
-                    if (i++ % 2_000 == 0) {
-                        println("Please wait while shutting down! Do not unplug your device, yet!")
-                    }
-                }
-                println("Saving progress...")
-                data.save()
-                println("Saved!")
-                println("You can now unplug your device.")
-            }
-        })
+        mainThread = Thread.currentThread()
+        Runtime.getRuntime().addShutdownHook(shutdownHook)
         doTheActualRecovering()
     }
 
@@ -91,7 +94,6 @@ object RecoveryHelper {
     fun doTheActualRecovering() {
         try {
             srcPrefixLength = File(data.srcPath).absolutePath.length
-            dstPrefixLength = File(data.dstPath).absolutePath.length
 
             if (data.progress == Enums.Progress.INDEXING_SRC) {
                 println("Started indexing source...")
@@ -142,14 +144,12 @@ object RecoveryHelper {
             }
             val success = indexSourceFile(it)
             if (!success) {
-                println("\nError 001!")
-                data.save()
-                System.exit(0)
+                exit("\nError 001!")
             }
         }
     }
 
-    fun indexSourceFile(file: File): Boolean {
+    private fun indexSourceFile(file: File): Boolean {
         val path = file.absolutePath.substring(srcPrefixLength)
         var retries = 0
         var successful = false
@@ -189,9 +189,7 @@ object RecoveryHelper {
                 indexDestinationFile(it)
             } catch (e: Exception) {
                 e.printStackTrace()
-                println("Destination is not supposed to have any errors!")
-                data.save()
-                System.exit(-1)
+                exit("Destination is not supposed to have any errors!")
             }
         }
     }
@@ -207,9 +205,7 @@ object RecoveryHelper {
         for (file in data.files) {
             copyFile(file)
             if (file.status == Enums.Status.FAILED) {
-                println("Error 002!")
-                data.save()
-                System.exit(0)
+                exit("Error 002!")
             }
         }
     }
@@ -242,7 +238,7 @@ object RecoveryHelper {
         }
     }
 
-    fun verify() {
+    private fun verify() {
         for (file in data.files) {
             if (!running) {
                 return
@@ -250,9 +246,7 @@ object RecoveryHelper {
             verifyFile(file)
             if (file.status == Enums.Status.FAILED) {
                 data.progress = Enums.Progress.INDEXING_SRC
-                println("Error 003!")
-                data.save()
-                System.exit(0)
+                exit("Error 003!")
             }
         }
     }
@@ -305,5 +299,12 @@ object RecoveryHelper {
                 }
             }
         }
+    }
+
+    private fun exit(message: String) {
+        println(message)
+        Runtime.getRuntime().removeShutdownHook(shutdownHook)
+        data.save()
+        System.exit(-1)
     }
 }
