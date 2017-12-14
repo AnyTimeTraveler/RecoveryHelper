@@ -6,6 +6,22 @@ This program is intended to be used when you have a hard drive that has an issue
 
 It is by no means perfect, but I use it regularly when I need to grab a specific folder from a slow/unreliable hard drive.
 
+## Usage
+To start a new transfer:
+```bash
+java -jar RecoveryHelper-1.0.jar /path/to/source/ /path/to/destination/ /path/to/config.json
+```
+To resume an old transfer:
+
+```bash
+java -jar RecoveryHelper-1.0.jar /path/to/config.json
+```
+or
+
+```bash
+java -jar RecoveryHelper-1.0.jar /path/to/new/source/ /path/to/new/destination/ /path/to/old/config.json
+```
+
 ## Features
 
  - It can recover from almost any crash 
